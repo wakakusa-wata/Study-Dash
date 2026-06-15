@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  /* Override font-mono to also use Inter, ensuring all XP displays and counters use the regular clean non-slashed zero font */
+  --font-mono: "Inter", system-ui, -apple-system, sans-serif;
+  --font-logo: "Montserrat", sans-serif;
+}
+
+/* Base style reset forcing Inter globally and standard rendering of numerals */
+:root {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  
+  /* Ensure slashed zeros or alternative glyph styles are explicitly normal (no crossing slashes) */
+  font-variant-numeric: normal !important;
+  font-feature-settings: "zero" 0, "ordn" 0, "frac" 0, "tnum" 1 !important;
+}
+
+body {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+/* Hide scrollbars globally across the entire application while maintaining scrolling functionality */
+*::-webkit-scrollbar {
+  display: none !important;
+}
+
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+/* Glassmorphism premium panels and elements */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(244, 244, 245, 0.8) !important;
+}
+
+.dark .glass-panel {
+  background: rgba(18, 18, 18, 0.65) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(63, 63, 70, 0.4) !important;
+}
+
+/* Elite selection overrides and ambient custom styles */
+::selection {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: inherit;
+}
+
+/* Smooth layout state transition filters */
+.blur-transition {
+  transition: backdrop-filter 0.3s ease, background-color 0.3s ease;
+}
+
+/* Elite Tap feedback micro-interactions (Scale 0.95 & Emerald Glow) */
+button,
+[role="button"],
+.clickable-card {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease !important;
+}
+
+button:active,
+[role="button"]:active,
+.clickable-card:active {
+  transform: scale(0.95) !important;
+  box-shadow: 0 0 14px 2px rgba(16, 185, 129, 0.38) !important;
+}
+
+/* Custom interactive drawer navigation items */
+.drawer-nav-item {
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
+  border-left: 3px solid transparent !important;
+}
+
+.drawer-nav-item:hover {
+  transform: translateY(-2px) !important;
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  border-left: 3px solid #10b981 !important;
+}
+
+

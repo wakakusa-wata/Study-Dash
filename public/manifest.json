@@ -1,0 +1,48 @@
+{
+  "name": "学習支援ナビ StudyDash",
+  "short_name": "StudyDash",
+  "description": "課題管理、提出期限リマインダー、進捗可視化グラフ、チーム共有、ランキング、定期目標設定、Googleカレンダー同期を備えた総合的な学習支援ダッシュボード。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#10b981",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "shortcuts": [
+    {
+      "name": "今日の振り返り",
+      "url": "/?tab=journals",
+      "description": "今日の勉強時間を記録してXPを獲得する"
+    },
+    {
+      "name": "タスク一覧",
+      "url": "/?tab=tasks",
+      "description": "学習タスクを確認・管理する"
+    },
+    {
+      "name": "ランキング",
+      "url": "/?tab=rankings",
+      "description": "チームや全国のXPランキングを見る"
+    }
+  ]
+}

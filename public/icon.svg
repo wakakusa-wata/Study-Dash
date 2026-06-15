@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Rounded elegant background for maskable/any support -->
+  <rect width="512" height="512" rx="110" fill="#09090b" />
+  
+  <!-- Sleek emerald gradient glow representing study charts -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#09090b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  
+  <circle cx="256" cy="256" r="230" fill="url(#glow)" />
+
+  <!-- Dynamic Glowing Chart Line (Study progress) in background -->
+  <path d="M120 360 Q 180 300, 240 330 T 380 200" fill="none" stroke="#10b981" stroke-width="12" stroke-linecap="round" opacity="0.6" />
+  <circle cx="380" cy="200" r="10" fill="#34d399" />
+  
+  <!-- Elegant Graduation Cap Shape -->
+  <!-- Top diamond shape -->
+  <polygon points="256,120 420,195 256,270 92,195" fill="url(#emeraldGrad)" />
+  <polygon points="256,135 390,195 256,255 122,195" fill="#09090b" opacity="0.15" />
+  
+  <!-- Cap skull portion -->
+  <path d="M160 230 V 310 C 160 350, 352 350, 352 310 V 230" fill="none" stroke="url(#emeraldGrad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Red Tassel representing active XP points or goal achievement -->
+  <path d="M380 205 V 290" fill="none" stroke="#f43f5e" stroke-width="8" stroke-linecap="round" />
+  <polygon points="380,285 372,315 388,315" fill="#f43f5e" />
+  <circle cx="380" cy="205" r="7" fill="#f43f5e" />
+</svg>

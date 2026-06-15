@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Auth & Identity primitive helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Users profiles
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['uid', 'displayName', 'email', 'xp', 'weeklyGoalMinutes', 'createdAt'])
+        && request.resource.data.xp is number
+        && request.resource.data.weeklyGoalMinutes is number;
+      allow update: if isOwner(userId)
+        && request.resource.data.xp is number
+        && request.resource.data.weeklyGoalMinutes is number;
+      allow delete: if false; // Users shouldn't delete profile from client
+    }
+
+    // Tasks collection
+    match /tasks/{taskId} {
+      // Allow read if user is the task owner, or if the task is shared team-wide
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userId == null ||
+        resource.data.teamId != ""
+      );
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['id', 'title', 'userId', 'userName', 'status', 'progress', 'priority', 'createdAt', 'updatedAt'])
+        && request.resource.data.progress is number
+        && request.resource.data.progress >= 0
+        && request.resource.data.progress <= 100;
+
+      allow update: if isSignedIn() && (
+        // Task owner can update anything
+        resource.data.userId == request.auth.uid ||
+        // Other users if the task is a team shared task, but they can only update status and progress
+        (resource.data.teamId != "" && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'progress', 'updatedAt']))
+      ) && request.resource.data.progress is number
+        && request.resource.data.progress >= 0
+        && request.resource.data.progress <= 100;
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Teams collection
+    match /teams/{teamId} {
+      // Anyone signed in can view teams (simplifies lookup)
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.keys().hasAll(['id', 'name', 'ownerId', 'members', 'createdAt']);
+
+      allow update: if isSignedIn() && (
+        // Owner can modify members or team name
+        resource.data.ownerId == request.auth.uid ||
+        // Members can join themselves (added to array)
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']))
+      );
+
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Journals collection
+    match /journals/{journalId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['id', 'userId', 'userName', 'content', 'studyMinutes', 'createdAt'])
+        && request.resource.data.studyMinutes is number;
+
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.studyMinutes is number;
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Goals collection
+    match /goals/{goalId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['id', 'userId', 'title', 'startDate', 'endDate', 'status', 'createdAt']);
+
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Exams collection
+    match /exams/{examId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['id', 'userId', 'title', 'examDate', 'createdAt']);
+
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
