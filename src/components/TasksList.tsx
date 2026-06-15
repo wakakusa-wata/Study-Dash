@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, TaskPriority, TaskStatus } from '../types';
-import { Plus, Calendar, AlertTriangle, Trash2, CalendarCheck2, ToggleLeft, ToggleRight, Check, ListTodo, AlertCircle } from 'lucide-react';
+import { Plus, Calendar, AlertTriangle, Trash2, CalendarCheck2, ToggleLeft, ToggleRight, Check, ListTodo, AlertCircle, ArrowUpDown } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface TasksListProps {
@@ -11,6 +11,14 @@ interface TasksListProps {
   onDeleteTask: (taskId: string) => Promise<void>;
   onSyncTaskToGoogleCalendar: (task: Task) => Promise<void>;
 }
+
+type SortOption = 'none' | 'priority-desc' | 'priority-asc';
+
+const priorityWeights: Record<TaskPriority, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
 
 export default function TasksList({
   tasks,
@@ -26,9 +34,21 @@ export default function TasksList({
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [syncingTaskId, setSyncingTaskId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('none');
 
   // Filter local standard tasks (not team tasks)
   const personalTasks = tasks.filter(t => !t.teamId);
+
+  // Sort tasks based on selected option
+  const sortedTasks = [...personalTasks].sort((a, b) => {
+    if (sortBy === 'priority-desc') {
+      return (priorityWeights[b.priority] || 0) - (priorityWeights[a.priority] || 0);
+    }
+    if (sortBy === 'priority-asc') {
+      return (priorityWeights[a.priority] || 0) - (priorityWeights[b.priority] || 0);
+    }
+    return 0;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,11 +171,29 @@ export default function TasksList({
       {/* Tasks List and Grid */}
       <div className="lg:col-span-8 space-y-6">
         <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 transition-colors shadow-xs">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <h3 className="font-semibold text-lg text-zinc-800 dark:text-zinc-100 flex items-center">
               <ListTodo className="h-5 w-5 mr-1.5 text-emerald-500" />
               現在の課題リスト ({personalTasks.length}件)
             </h3>
+
+            {/* Sort Control */}
+            <div className="flex items-center space-x-2 bg-zinc-50 dark:bg-zinc-950/40 px-3 py-1.5 rounded-xl border border-zinc-200/20 dark:border-zinc-800/40">
+              <ArrowUpDown className="h-4 w-4 text-emerald-500" />
+              <span className="text-xs font-semibold text-zinc-400 whitespace-nowrap">
+                重要度順:
+              </span>
+              <select
+                id="priority-sort"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="bg-transparent text-zinc-700 dark:text-zinc-300 text-xs font-semibold focus:outline-hidden cursor-pointer"
+              >
+                <option value="none">標準 (登録順)</option>
+                <option value="priority-desc">高い順 (高 → 低)</option>
+                <option value="priority-asc">低い順 (低 → 高)</option>
+              </select>
+            </div>
           </div>
 
           {personalTasks.length === 0 ? (
@@ -166,7 +204,7 @@ export default function TasksList({
             </div>
           ) : (
             <div className="space-y-4">
-              {personalTasks.map((task) => {
+              {sortedTasks.map((task) => {
                 const dateLimit = task.deadline ? new Date(task.deadline) : null;
                 const isOverdue = dateLimit && dateLimit < new Date() && task.status !== 'done';
 

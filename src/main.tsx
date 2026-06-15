@@ -12,7 +12,9 @@ createRoot(document.getElementById('root')!).render(
 // Register service worker for Progressive Web App features
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    const baseUrl = (import.meta as any).env.BASE_URL || '/';
+    const swPath = `${baseUrl}sw.js`;
+    navigator.serviceWorker.register(swPath)
       .then((reg) => {
         console.log('StudyDash Service Worker registered successfully:', reg.scope);
       })

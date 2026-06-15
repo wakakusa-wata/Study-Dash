@@ -1,10 +1,10 @@
 const CACHE_NAME = 'studydash-cache-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon.svg',
-  '/icon-512.jpg'
+  './',
+  'index.html',
+  'manifest.json',
+  'icon.svg',
+  'icon-512.jpg'
 ];
 
 // Install stage: Cache assets for reliable shell loading
@@ -69,7 +69,7 @@ self.addEventListener('fetch', (event) => {
           }
           // For navigation failures (page reload on offline), serve standard App Shell index.html
           if (event.request.mode === 'navigate') {
-            return caches.match('/');
+            return caches.match('./') || caches.match('index.html');
           }
         });
       })
