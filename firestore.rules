@@ -45,7 +45,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['id', 'title', 'userId', 'userName', 'status', 'progress', 'priority', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['title', 'userId', 'userName', 'status', 'progress', 'priority', 'createdAt', 'updatedAt'])
         && request.resource.data.progress is number
         && request.resource.data.progress >= 0
         && request.resource.data.progress <= 100;
@@ -69,7 +69,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.keys().hasAll(['id', 'name', 'ownerId', 'members', 'createdAt']);
+        && request.resource.data.keys().hasAll(['name', 'ownerId', 'members', 'createdAt']);
 
       allow update: if isSignedIn() && (
         // Owner can modify members or team name
@@ -87,7 +87,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['id', 'userId', 'userName', 'content', 'studyMinutes', 'createdAt'])
+        && request.resource.data.keys().hasAll(['userId', 'userName', 'content', 'studyMinutes', 'createdAt'])
         && request.resource.data.studyMinutes is number;
 
       allow update: if isSignedIn()
@@ -103,7 +103,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['id', 'userId', 'title', 'startDate', 'endDate', 'status', 'createdAt']);
+        && request.resource.data.keys().hasAll(['userId', 'title', 'startDate', 'endDate', 'status', 'createdAt']);
 
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid;
@@ -117,7 +117,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['id', 'userId', 'title', 'examDate', 'createdAt']);
+        && request.resource.data.keys().hasAll(['userId', 'title', 'examDate', 'createdAt']);
 
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid;

@@ -14,7 +14,7 @@ import {
   arrayUnion,
   increment
 } from 'firebase/firestore';
-import { auth, db, googleSignIn, logout, initAuth } from './firebase';
+import { auth, db, googleSignIn, logout, initAuth, guestSignIn } from './firebase';
 import { User as FirebaseUser } from 'firebase/auth';
 import { Task, Goal, Journal, Team, UserProfile, OperationType, ExamSchedule } from './types';
 import { handleFirestoreError } from './firebase';
@@ -44,7 +44,8 @@ import {
   Chrome,
   GraduationCap,
   Menu,
-  X
+  X,
+  UserCheck
 } from 'lucide-react';
 
 export default function App() {
@@ -105,18 +106,35 @@ export default function App() {
     }
 
     // Subscribe tasks (either user owned, or group shared)
-    const tasksQuery = query(collection(db, 'tasks'));
-    const unsubscribeTasks = onSnapshot(tasksQuery, (snapshot) => {
-      const list: Task[] = [];
+    const personalTasksQuery = query(collection(db, 'tasks'), where('userId', '==', user.uid));
+    const teamTasksQuery = query(collection(db, 'tasks'), where('teamId', '!=', ''));
+
+    let personalList: Task[] = [];
+    let teamList: Task[] = [];
+
+    const updateCombinedTasks = () => {
+      const mergedMap = new Map<string, Task>();
+      personalList.forEach(t => mergedMap.set(t.id, t));
+      teamList.forEach(t => mergedMap.set(t.id, t));
+      const combined = Array.from(mergedMap.values());
+      setTasks(combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    };
+
+    const unsubscribePersonalTasks = onSnapshot(personalTasksQuery, (snapshot) => {
+      personalList = [];
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        // client-side ownership and shared filters according to rules
-        if (data.userId === user.uid || data.teamId) {
-          list.push({ id: docSnap.id, ...data } as Task);
-        }
+        personalList.push({ id: docSnap.id, ...docSnap.data() } as Task);
       });
-      setTasks(list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'tasks'));
+      updateCombinedTasks();
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'tasks/personal'));
+
+    const unsubscribeTeamTasks = onSnapshot(teamTasksQuery, (snapshot) => {
+      teamList = [];
+      snapshot.forEach((docSnap) => {
+        teamList.push({ id: docSnap.id, ...docSnap.data() } as Task);
+      });
+      updateCombinedTasks();
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'tasks/team'));
 
     // Subscribe goals
     const goalsQuery = query(collection(db, 'goals'), where('userId', '==', user.uid));
@@ -181,7 +199,8 @@ export default function App() {
     });
 
     return () => {
-      unsubscribeTasks();
+      unsubscribePersonalTasks();
+      unsubscribeTeamTasks();
       unsubscribeGoals();
       unsubscribeExams();
       unsubscribeJournals();
@@ -202,8 +221,8 @@ export default function App() {
       } else {
         const initialProfile: UserProfile = {
           uid: firebaseUser.uid,
-          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '学習者',
-          email: firebaseUser.email || '',
+          displayName: firebaseUser.isAnonymous ? 'ゲスト学習者' : (firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '学習者'),
+          email: firebaseUser.email || (firebaseUser.isAnonymous ? 'guest@studydash.local' : ''),
           photoURL: firebaseUser.photoURL || undefined,
           xp: 0,
           weeklyGoalMinutes: 300,
@@ -221,8 +240,8 @@ export default function App() {
         // Fallback to local profile based on authenticated firebaseUser so the app remains fully interactive offline
         const localProfile: UserProfile = {
           uid: firebaseUser.uid,
-          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '学習者',
-          email: firebaseUser.email || '',
+          displayName: firebaseUser.isAnonymous ? 'ゲスト学習者' : (firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '学習者'),
+          email: firebaseUser.email || (firebaseUser.isAnonymous ? 'guest@studydash.local' : ''),
           photoURL: firebaseUser.photoURL || undefined,
           xp: 0,
           weeklyGoalMinutes: 300,
@@ -254,6 +273,26 @@ export default function App() {
         setLoginError('サインイン処理がキャンセルされました。もう一度お試しください。');
       } else {
         setLoginError('ログインに失敗しました：' + errMsg);
+      }
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setLoginError(null);
+    try {
+      const result = await guestSignIn();
+      if (result) {
+        setUser(result.user);
+        setAccessToken(null);
+        await fetchOrCreateProfile(result.user);
+      }
+    } catch (err: any) {
+      console.error(err);
+      const errMsg = err?.message || String(err);
+      if (err?.code === 'auth/operation-not-allowed' || errMsg.includes('operation-not-allowed')) {
+        setLoginError('ゲストサインイン（匿名認証）がFirebase側でまだ有効化されていません。Firebase Consoleの [Authentication] > [Sign-in method] で「匿名 (Anonymous)」を有効化してください。');
+      } else {
+        setLoginError('ゲストログインに失敗しました：' + errMsg);
       }
     }
   };
@@ -346,7 +385,9 @@ export default function App() {
   };
 
   const handleSyncTaskToGoogleCalendar = async (task: Task) => {
-    if (!accessToken) throw new Error('Not aligned with Google OAuth.');
+    if (!accessToken) {
+      throw new Error('ゲストモード（またはGoogle連携未承認のログイン）では、Google Calendarとの同期機能はサポートされていません。この機能を利用するには、一度サインアウトし、Googleアカウントでログインしてください。');
+    }
 
     const event = {
       summary: `【StudyDash 期限】${task.title}`,
@@ -595,11 +636,30 @@ export default function App() {
 
           <button
             onClick={handleLogin}
-            className="w-full mt-8 bg-zinc-900 dark:bg-emerald-500 hover:bg-zinc-850 hover:dark:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl text-sm transition-transform transform active:scale-98 flex items-center justify-center space-x-2 cursor-pointer shadow-sm animate-fade-in"
+            className="w-full mt-8 bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-850 hover:dark:bg-zinc-750 text-white font-bold py-3 px-4 rounded-xl text-sm transition-transform transform active:scale-98 flex items-center justify-center space-x-2 cursor-pointer shadow-sm animate-fade-in"
           >
             <Chrome className="h-4.5 w-4.5" />
             <span>Googleアカウントで始める</span>
           </button>
+
+          <div className="relative flex py-4 items-center">
+            <div className="flex-grow border-t border-zinc-150 dark:border-zinc-850"></div>
+            <span className="flex-shrink mx-4 text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-bold tracking-wider">または（推奨）</span>
+            <div className="flex-grow border-t border-zinc-150 dark:border-zinc-850"></div>
+          </div>
+
+          <button
+            onClick={handleGuestLogin}
+            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl text-sm transition-transform transform active:scale-98 flex items-center justify-center space-x-2 cursor-pointer shadow-sm"
+          >
+            <UserCheck className="h-4.5 w-4.5" />
+            <span>審査不要：ゲストモードで始める</span>
+          </button>
+
+          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-4 text-left bg-zinc-50 dark:bg-zinc-950/40 p-3 rounded-2xl border border-zinc-200/10 dark:border-zinc-800/20 leading-relaxed">
+            💡 <strong>Google認証の制限について:</strong><br />
+            Google API（カレンダーイベント等）を活用する機能を含んでいるため、Googleの審査が未完了の段階（開発中など）では、テストユーザー以外はGoogleログインが制限されることがあります。その場合は<strong>「ゲストモード（匿名サインイン）」</strong>をご選択いただくと、アカウント審査制限に関わらず、本アプリの基本機能（課題・チーム機能等）がすべて快適にご利用いただけます！
+          </p>
 
           {loginError && (
             <div id="login-error-tip" className="mt-4 p-4 bg-red-50 dark:bg-red-950/45 border border-red-200/60 dark:border-red-900/40 text-red-600 dark:text-red-400 text-xs rounded-2xl text-left leading-relaxed space-y-1">
