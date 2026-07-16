@@ -60,8 +60,10 @@ export default function TeamSharing({
       setNewTeamName('');
       setTempMembers([]);
       setShowAddTeamModal(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const errMsg = err?.message || String(err);
+      alert('グループの作成に失敗しました。詳細: ' + errMsg);
     }
   };
 
@@ -74,8 +76,10 @@ export default function TeamSharing({
       await onAddTaskToTeam(newTaskTitle, newTaskPriority, newTaskDeadline, activeTeam.id);
       setNewTaskTitle('');
       setNewTaskDeadline('');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const errMsg = err?.message || String(err);
+      alert('共有課題の追加に失敗しました。詳細: ' + errMsg);
     } finally {
       setIsAddingTask(false);
     }
@@ -94,8 +98,10 @@ export default function TeamSharing({
       const updatedMembers = [...activeTeam.members, cleanEmail];
       await onUpdateTeamMembers(activeTeam.id, updatedMembers);
       setInviteEmailInput('');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const errMsg = err?.message || String(err);
+      alert('メンバーの招待に失敗しました。詳細: ' + errMsg);
     }
   };
 
@@ -242,7 +248,7 @@ export default function TeamSharing({
                     required
                     value={newTaskDeadline}
                     onChange={(e) => setNewTaskDeadline(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden font-mono"
+                    className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2.5 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden block box-border"
                   />
                 </div>
 

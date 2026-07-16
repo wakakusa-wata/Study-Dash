@@ -223,7 +223,7 @@ export default function App() {
           uid: firebaseUser.uid,
           displayName: firebaseUser.isAnonymous ? 'ゲスト学習者' : (firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '学習者'),
           email: firebaseUser.email || (firebaseUser.isAnonymous ? 'guest@studydash.local' : ''),
-          photoURL: firebaseUser.photoURL || undefined,
+          ...(firebaseUser.photoURL ? { photoURL: firebaseUser.photoURL } : {}),
           xp: 0,
           weeklyGoalMinutes: 300,
         };
@@ -242,7 +242,7 @@ export default function App() {
           uid: firebaseUser.uid,
           displayName: firebaseUser.isAnonymous ? 'ゲスト学習者' : (firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '学習者'),
           email: firebaseUser.email || (firebaseUser.isAnonymous ? 'guest@studydash.local' : ''),
-          photoURL: firebaseUser.photoURL || undefined,
+          ...(firebaseUser.photoURL ? { photoURL: firebaseUser.photoURL } : {}),
           xp: 0,
           weeklyGoalMinutes: 300,
         };
@@ -317,15 +317,28 @@ export default function App() {
         priority,
         deadline,
         description,
-        status: 'todo',
+        status: 'todo' as const,
         progress: 0,
         userId: user.uid,
         userName: userProfile?.displayName || user.displayName || '不明なユーザー',
-        userPhoto: user.photoURL || undefined,
+        ...(user.photoURL ? { userPhoto: user.photoURL } : {}),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      await addDoc(collection(db, 'tasks'), newTask);
+      const docRef = await addDoc(collection(db, 'tasks'), newTask);
+
+      // Google Calendar auto-sync if OAuth accessToken is available
+      if (accessToken) {
+        try {
+          const createdTask: Task = {
+            id: docRef.id,
+            ...newTask,
+          };
+          await handleSyncTaskToGoogleCalendar(createdTask);
+        } catch (calendarErr) {
+          console.error('Google Calendar auto-sync failed for handleAddTask:', calendarErr);
+        }
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'tasks');
     }
@@ -434,7 +447,7 @@ export default function App() {
       const newJournal = {
         userId: user.uid,
         userName: userProfile?.displayName || user.displayName || '不明なユーザー',
-        userPhoto: user.photoURL || undefined,
+        ...(user.photoURL ? { userPhoto: user.photoURL } : {}),
         content,
         studyMinutes,
         createdAt: new Date().toISOString(),
@@ -580,16 +593,29 @@ export default function App() {
         title,
         priority,
         deadline,
-        status: 'todo',
+        status: 'todo' as const,
         progress: 0,
         userId: user.uid,
         userName: userProfile?.displayName || user.displayName || '不明なユーザー',
-        userPhoto: user.photoURL || undefined,
+        ...(user.photoURL ? { userPhoto: user.photoURL } : {}),
         teamId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      await addDoc(collection(db, 'tasks'), newTeamTask);
+      const docRef = await addDoc(collection(db, 'tasks'), newTeamTask);
+
+      // Google Calendar auto-sync if OAuth accessToken is available
+      if (accessToken) {
+        try {
+          const createdTask: Task = {
+            id: docRef.id,
+            ...newTeamTask,
+          };
+          await handleSyncTaskToGoogleCalendar(createdTask);
+        } catch (calendarErr) {
+          console.error('Google Calendar auto-sync failed for handleAddTaskToTeam:', calendarErr);
+        }
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'tasks');
     }

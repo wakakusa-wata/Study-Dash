@@ -194,7 +194,7 @@ export default function GoalSettings({
                   required
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-800 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 font-mono"
+                  className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-zinc-800 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 block box-border"
                 />
               </div>
               <div>
@@ -204,7 +204,7 @@ export default function GoalSettings({
                   required
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-800 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 font-mono"
+                  className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-zinc-800 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 block box-border"
                 />
               </div>
             </div>
@@ -332,7 +332,7 @@ export default function GoalSettings({
                   required
                   value={examDate}
                   onChange={(e) => setExamDate(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-800 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-indigo-500 font-mono"
+                  className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-zinc-800 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-indigo-500 block box-border"
                 />
               </div>
               <div>
