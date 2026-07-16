@@ -609,7 +609,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 pt-safe pb-safe">
         <GraduationCap className="h-12 w-12 text-emerald-500 animate-bounce mb-4" />
         <p className="text-sm font-semibold">学習データを同期しています...</p>
       </div>
@@ -619,7 +619,7 @@ export default function App() {
   // Not signed in splash screen
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4 transition-colors">
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4 pt-safe pb-safe transition-colors">
         <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-8 rounded-3xl text-center shadow-xs">
           <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500 rounded-xl flex items-center justify-center mx-auto mb-4.5 transition-transform transform hover:scale-105">
             <GraduationCap className="h-5 w-5" />
@@ -680,7 +680,7 @@ export default function App() {
     <div className={`min-h-screen transition-colors duration-200 bg-zinc-50 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-100`}>
       
       {/* Dynamic Header */}
-      <header className="sticky top-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-850 z-40 transition-colors">
+      <header className="sticky top-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-850 z-40 transition-colors pt-safe">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           
           {/* Logo brand */}
@@ -751,7 +751,7 @@ export default function App() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '100%', opacity: 0 }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed right-0 top-0 bottom-0 w-80 bg-white dark:bg-[#0a0a0a] border-l border-zinc-200 dark:border-zinc-900 shadow-2xl z-50 overflow-y-auto p-6 flex flex-col justify-between"
+              className="fixed right-0 top-0 bottom-0 w-80 bg-white dark:bg-[#0a0a0a] border-l border-zinc-200 dark:border-zinc-900 shadow-2xl z-50 overflow-y-auto p-6 pt-safe pb-safe flex flex-col justify-between"
             >
               <div className="space-y-6">
                 {/* Header of Drawer */}
