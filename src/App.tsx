@@ -388,6 +388,19 @@ export default function App() {
           xp: increment(xpIncr)
         });
       }
+
+      // Automatically sync task updates to Google Calendar for logged-in Google users
+      if (user && !user.isAnonymous) {
+        const updatedTask = {
+          ...targetTask,
+          ...fields
+        };
+        try {
+          await handleSyncTaskToGoogleCalendar(updatedTask);
+        } catch (syncErr) {
+          console.error('Auto-sync to Google Calendar failed during task update:', syncErr);
+        }
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `tasks/${taskId}`);
     }
@@ -406,32 +419,73 @@ export default function App() {
           xp: increment(-50)
         });
       }
+
+      // Delete Google Calendar events if they exist
+      if (user && !user.isAnonymous && targetTask && (targetTask.googleCalendarEventId || targetTask.googleCalendarPersonalEventId)) {
+        let currentToken = accessToken;
+        if (!currentToken) {
+          try {
+            const result = await googleSignIn();
+            if (result) currentToken = result.accessToken;
+          } catch (e) {
+            console.error('Failed to retrieve token for calendar event deletion:', e);
+          }
+        }
+        if (currentToken) {
+          const deleteEvent = async (eventId: string) => {
+            try {
+              await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+              });
+            } catch (err) {
+              console.error('Error deleting calendar event:', err);
+            }
+          };
+          if (targetTask.googleCalendarEventId) {
+            await deleteEvent(targetTask.googleCalendarEventId);
+          }
+          if (targetTask.googleCalendarPersonalEventId) {
+            await deleteEvent(targetTask.googleCalendarPersonalEventId);
+          }
+        }
+      }
+
       await deleteDoc(doc(db, 'tasks', taskId));
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `tasks/${taskId}`);
     }
   };
 
-  const handleSyncTaskToGoogleCalendar = async (task: Task) => {
+  const handleSyncTaskToGoogleCalendar = async (task: Task, isManual: boolean = false) => {
     let currentToken = accessToken;
 
     // If the user is a logged-in Google user but we don't have a valid token (e.g., expired/cleared),
-    // attempt to prompt for a seamless Google Sign-In/re-authorization to retrieve a fresh token.
+    // attempt to prompt for a seamless Google Sign-In/re-authorization to retrieve a fresh token ONLY if it is a manual sync.
     if (!currentToken && user && !user.isAnonymous) {
-      try {
-        console.log('Access token is missing or expired for Google user. Attempting to re-authorize...');
-        const result = await googleSignIn();
-        if (result) {
-          currentToken = result.accessToken;
-          setAccessToken(currentToken);
+      if (isManual) {
+        try {
+          console.log('Access token is missing or expired for Google user. Attempting to re-authorize...');
+          const result = await googleSignIn();
+          if (result) {
+            currentToken = result.accessToken;
+            setAccessToken(currentToken);
+          }
+        } catch (authErr: any) {
+          throw new Error('Googleカレンダーへのアクセス期限が切れています。カレンダー連携を継続するには、一度ダッシュボードから再度Googleアカウント連携（ログイン）を行ってください。');
         }
-      } catch (authErr: any) {
-        throw new Error('Googleカレンダーへのアクセス期限が切れています。カレンダー連携を継続するには、一度ダッシュボードから再度Googleアカウント連携（ログイン）を行ってください。');
+      } else {
+        console.log('Skipping Google Calendar auto-sync because access token is missing/expired.');
+        return;
       }
     }
 
     if (!currentToken) {
-      throw new Error('ゲストモード（またはGoogle連携未承認のログイン）では、Google Calendarとの同期機能はサポートされていません。この機能を利用するには、Googleアカウントでログインするか、ダッシュボードから連携してください。');
+      if (isManual) {
+        throw new Error('ゲストモード（またはGoogle連携未承認のログイン）では、Google Calendarとの同期機能はサポートされていません。この機能を利用するには、Googleアカウントでログインするか、ダッシュボードから連携してください。');
+      } else {
+        return;
+      }
     }
 
     const deadlineStr = task.deadline ? new Date(task.deadline).toLocaleDateString("ja-JP") : "未設定";
@@ -446,29 +500,52 @@ ${task.description || '特になし'}
 ---------------------------------
 ※この予定はStudyDashから自動同期されました。`;
 
-    // Helper to send individual event request
-    const createEventRequest = async (summary: string, dateStr: string) => {
-      const event = {
+    // Helper to send individual event request (handles POST, PUT, or DELETE)
+    const syncEvent = async (
+      eventId: string | undefined,
+      summary: string,
+      dateStr: string | undefined
+    ): Promise<string | null> => {
+      // If dateStr is not set, delete the event if it exists
+      if (!dateStr) {
+        if (eventId) {
+          try {
+            await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${currentToken}`,
+              },
+            });
+          } catch (e) {
+            console.error('Failed to delete calendar event:', e);
+          }
+        }
+        return null;
+      }
+
+      // We have a date. Either update (PUT) or create (POST)
+      const method = eventId ? 'PUT' : 'POST';
+      const url = eventId
+        ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`
+        : 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+
+      const eventBody = {
         summary,
         description: customDescription,
-        start: {
-          date: dateStr, // All-day event
-        },
-        end: {
-          date: dateStr,
-        }
+        start: { date: dateStr },
+        end: { date: dateStr }
       };
 
-      let response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-        method: 'POST',
+      let response = await fetch(url, {
+        method,
         headers: {
           'Authorization': `Bearer ${currentToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(event),
+        body: JSON.stringify(eventBody),
       });
 
-      // If token expired, refresh and retry
+      // If token expired, refresh and retry once
       if (response.status === 401 && user && !user.isAnonymous) {
         console.log('Access token expired (401). Trying to refresh Google access token...');
         try {
@@ -477,14 +554,13 @@ ${task.description || '特になし'}
             currentToken = result.accessToken;
             setAccessToken(currentToken);
 
-            // Retry the exact fetch call
-            response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-              method: 'POST',
+            response = await fetch(url, {
+              method,
               headers: {
                 'Authorization': `Bearer ${currentToken}`,
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify(event),
+              body: JSON.stringify(eventBody),
             });
           }
         } catch (authErr) {
@@ -493,46 +569,50 @@ ${task.description || '特になし'}
       }
 
       if (!response.ok) {
+        // If updating an event that was deleted on Google Calendar side, we might get 404.
+        // In that case, retry as a POST to recreate it cleanly!
+        if (response.status === 404 && eventId) {
+          console.log('Event not found (404) on Google Calendar, recreating...');
+          return syncEvent(undefined, summary, dateStr);
+        }
         const errTxt = await response.text();
         throw new Error(errTxt);
       }
 
-      const resData = await response.json();
-      return resData.id as string;
+      if (method === 'PUT') {
+        return eventId || null;
+      } else {
+        const resData = await response.json();
+        return resData.id as string;
+      }
     };
 
-    let deadlineEventId: string | undefined;
-    let personalEventId: string | undefined;
+    let deadlineEventId: string | null | undefined = undefined;
+    let personalEventId: string | null | undefined = undefined;
 
-    // Create deadline event if exists
-    if (task.deadline) {
-      try {
-        deadlineEventId = await createEventRequest(`【提出期限】${task.title}`, task.deadline);
-      } catch (err) {
-        console.error('Failed to sync deadline event:', err);
-        throw err;
-      }
+    // Sync deadline event
+    try {
+      deadlineEventId = await syncEvent(task.googleCalendarEventId, `【提出期限】${task.title}`, task.deadline);
+    } catch (err) {
+      console.error('Failed to sync deadline event:', err);
     }
 
-    // Create personal goal event if exists
-    if (task.personalDeadline) {
-      try {
-        personalEventId = await createEventRequest(`【自分目標期限】${task.title}`, task.personalDeadline);
-      } catch (err) {
-        console.error('Failed to sync personal deadline event:', err);
-        throw err;
-      }
+    // Sync personal goal event
+    try {
+      personalEventId = await syncEvent(task.googleCalendarPersonalEventId, `【自分目標期限】${task.title}`, task.personalDeadline);
+    } catch (err) {
+      console.error('Failed to sync personal deadline event:', err);
     }
 
-    // Update Firestore task doc
+    // Update Firestore task doc with the updated/created event IDs
     const updateFields: any = {
       updatedAt: new Date().toISOString()
     };
-    if (deadlineEventId) {
-      updateFields.googleCalendarEventId = deadlineEventId;
+    if (deadlineEventId !== undefined) {
+      updateFields.googleCalendarEventId = deadlineEventId || "";
     }
-    if (personalEventId) {
-      updateFields.googleCalendarPersonalEventId = personalEventId;
+    if (personalEventId !== undefined) {
+      updateFields.googleCalendarPersonalEventId = personalEventId || "";
     }
 
     const taskRef = doc(db, 'tasks', task.id);

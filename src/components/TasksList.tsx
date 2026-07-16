@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, TaskPriority, TaskStatus } from '../types';
-import { Plus, Calendar, AlertTriangle, Trash2, CalendarCheck2, ToggleLeft, ToggleRight, Check, ListTodo, AlertCircle, ArrowUpDown } from 'lucide-react';
+import { Plus, Calendar, AlertTriangle, Trash2, CalendarCheck2, ToggleLeft, ToggleRight, Check, ListTodo, AlertCircle, ArrowUpDown, Edit3 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface TasksListProps {
@@ -9,7 +9,7 @@ interface TasksListProps {
   onAddTask: (title: string, priority: TaskPriority, deadline: string, description: string, personalDeadline?: string) => Promise<void>;
   onUpdateTask: (taskId: string, fields: Partial<Task>) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
-  onSyncTaskToGoogleCalendar: (task: Task) => Promise<void>;
+  onSyncTaskToGoogleCalendar: (task: Task, isManual?: boolean) => Promise<void>;
 }
 
 type SortOption = 'none' | 'priority-desc' | 'priority-asc';
@@ -36,6 +36,51 @@ export default function TasksList({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [syncingTaskId, setSyncingTaskId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('none');
+
+  // Edit task state
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editPriority, setEditPriority] = useState<TaskPriority>('medium');
+  const [editDeadline, setEditDeadline] = useState('');
+  const [editPersonalDeadline, setEditPersonalDeadline] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleOpenEdit = (task: Task) => {
+    setEditingTask(task);
+    setEditTitle(task.title);
+    setEditPriority(task.priority);
+    setEditDeadline(task.deadline || '');
+    setEditPersonalDeadline(task.personalDeadline || '');
+    setEditDescription(task.description || '');
+  };
+
+  const handleCloseEdit = () => {
+    setEditingTask(null);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask) return;
+    if (!editTitle.trim() || !editDeadline) return;
+
+    setIsUpdating(true);
+    try {
+      await onUpdateTask(editingTask.id, {
+        title: editTitle,
+        priority: editPriority,
+        deadline: editDeadline,
+        personalDeadline: editPersonalDeadline || '',
+        description: editDescription
+      });
+      setEditingTask(null);
+    } catch (err: any) {
+      console.error(err);
+      alert('課題の更新に失敗しました。詳細: ' + (err?.message || String(err)));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   // Filter local standard tasks (not team tasks)
   const personalTasks = tasks.filter(t => !t.teamId);
@@ -82,7 +127,7 @@ export default function TasksList({
 
     setSyncingTaskId(task.id);
     try {
-      await onSyncTaskToGoogleCalendar(task);
+      await onSyncTaskToGoogleCalendar(task, true);
       alert('Googleカレンダーとの同期に成功しました！');
     } catch (err: any) {
       alert('同期に失敗しました。詳細: ' + err.message);
@@ -309,6 +354,14 @@ export default function TasksList({
                         )}
 
                         <button
+                          onClick={() => handleOpenEdit(task)}
+                          className="text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 p-1.5 rounded-lg transition-colors cursor-pointer"
+                          title="課題を編集"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+
+                        <button
                           onClick={() => onDeleteTask(task.id)}
                           className="text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-1.5 rounded-lg transition-colors cursor-pointer"
                           title="課題を削除"
@@ -370,6 +423,122 @@ export default function TasksList({
           )}
         </div>
       </div>
+
+      {/* Edit Task Modal */}
+      {editingTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" 
+            onClick={handleCloseEdit}
+          />
+          
+          {/* Modal content */}
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-2xl border border-zinc-150 dark:border-zinc-800 shadow-2xl relative z-10 overflow-hidden transform transition-all p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100 flex items-center">
+                <Edit3 className="h-5 w-5 mr-2 text-emerald-500" />
+                課題を編集する
+              </h3>
+              <button 
+                onClick={handleCloseEdit}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm font-semibold p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg cursor-pointer"
+              >
+                キャンセル
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">課題タイトル</label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-850 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">優先度</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['high', 'medium', 'low'] as const).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setEditPriority(p)}
+                      className={`py-2 px-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                        editPriority === p
+                          ? p === 'high'
+                            ? 'bg-rose-500 text-white shadow-xs'
+                            : p === 'medium'
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-emerald-500 text-white shadow-xs'
+                          : 'bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-400 border border-zinc-200 dark:border-zinc-800'
+                      }`}
+                    >
+                      {p === 'high' ? '高' : p === 'medium' ? '中' : '低'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">提出期限日</label>
+                  <input
+                    type="date"
+                    required
+                    value={editDeadline}
+                    onChange={(e) => setEditDeadline(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-zinc-850 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 block"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                    自分目標期限（任意）
+                  </label>
+                  <input
+                    type="date"
+                    value={editPersonalDeadline}
+                    onChange={(e) => setEditPersonalDeadline(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-zinc-850 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 block"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">詳細・メモ（任意）</label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={3}
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-850 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseEdit}
+                  className="px-4 py-2.5 text-sm font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer flex items-center justify-center space-x-1"
+                >
+                  <span>{isUpdating ? '保存中...' : '変更を保存'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
