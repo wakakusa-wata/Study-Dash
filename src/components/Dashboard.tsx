@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Task, Goal, Journal, UserProfile, ExamSchedule } from '../types';
-import { Sparkles, Calendar, AlertTriangle, CheckCircle2, Trophy, Clock, Target, CalendarDays, Flame, Play, ArrowRight } from 'lucide-react';
+import { Sparkles, Calendar, AlertTriangle, CheckCircle2, Trophy, Clock, Target, CalendarDays, Flame, Play, ArrowRight, Edit3, UserCheck, Chrome } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface DashboardProps {
@@ -10,9 +10,11 @@ interface DashboardProps {
   journals: Journal[];
   userProfile: UserProfile | null;
   accessToken: string | null;
+  isGuest: boolean;
   onUpdateTask: (taskId: string, fields: Partial<Task>) => Promise<void>;
   onTriggerGoogleLogin: () => Promise<void>;
   onLinkGoogleCalendar: () => Promise<void>;
+  onUpdateProfile: (displayName: string) => Promise<void>;
 }
 
 export default function Dashboard({
@@ -22,13 +24,34 @@ export default function Dashboard({
   journals,
   userProfile,
   accessToken,
+  isGuest,
   onUpdateTask,
   onTriggerGoogleLogin,
-  onLinkGoogleCalendar
+  onLinkGoogleCalendar,
+  onUpdateProfile
 }: DashboardProps) {
   const [delayedTasks, setDelayedTasks] = useState<Task[]>([]);
   const [aiAdviceForDelayed, setAiAdviceForDelayed] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState(userProfile?.displayName || '');
+
+  useEffect(() => {
+    if (userProfile?.displayName) {
+      setEditName(userProfile.displayName);
+    }
+  }, [userProfile?.displayName]);
+
+  const handleSaveName = async () => {
+    if (!editName.trim()) return;
+    try {
+      await onUpdateProfile(editName.trim());
+      setIsEditingName(false);
+    } catch (err) {
+      console.error('Failed to update name:', err);
+    }
+  };
 
   // Analyze delayed/overdue tasks automatically
   useEffect(() => {
@@ -101,15 +124,79 @@ export default function Dashboard({
     <div className="space-y-6">
       {/* Top Welcome Panel */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-805 p-6 rounded-3xl shadow-xs transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        <div className="flex-1">
           <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest block mb-1">STUDY COMPASS / ダッシュボード</span>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            お疲れ様です、{userProfile?.displayName || '学習者'} さん！
-          </h2>
+          {isEditingName ? (
+            <div className="flex items-center space-x-2 mt-1">
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                maxLength={15}
+                className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-1 text-sm font-bold text-zinc-900 dark:text-zinc-50 focus:outline-hidden"
+                placeholder="新しい表示名を入力"
+                autoFocus
+              />
+              <button
+                onClick={handleSaveName}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl cursor-pointer transition-colors"
+              >
+                保存
+              </button>
+              <button
+                onClick={() => {
+                  setEditName(userProfile?.displayName || '');
+                  setIsEditingName(false);
+                }}
+                className="text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 text-xs px-2 py-1.5 cursor-pointer"
+              >
+                キャンセル
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2 group mt-1">
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                お疲れ様です、{userProfile?.displayName || '学習者'} さん！
+              </h2>
+              {isGuest && (
+                <button
+                  onClick={() => setIsEditingName(true)}
+                  className="p-1 rounded-lg text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-200 cursor-pointer transition-colors"
+                  title="名前を変更する"
+                >
+                  <Edit3 className="h-4.5 w-4.5" />
+                </button>
+              )}
+            </div>
+          )}
           <p className="text-sm text-zinc-400 mt-1">
             今日の課題の進捗状況と目標へのチャレンジ、定期テストカウントダウンをお届けします。
           </p>
         </div>
+
+        {/* Guest Mode Badge & Google Link Promotion */}
+        {isGuest && (
+          <div className="bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100/50 dark:border-emerald-900/10 p-4 rounded-2xl flex items-start space-x-3.5 max-w-sm w-full md:w-auto">
+            <div className="bg-emerald-100 dark:bg-emerald-950/30 p-2 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0 mt-0.5">
+              <UserCheck className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                ゲストモードで学習中 📌
+              </p>
+              <p className="text-[10px] text-zinc-450 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                データは同じブラウザに自動保存・保持されます。別のデバイスでもログインするには、Googleアカウントと連携しましょう！
+              </p>
+              <button
+                onClick={onTriggerGoogleLogin}
+                className="mt-2 text-[10px] bg-zinc-900 hover:bg-zinc-850 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-white font-extrabold py-1.5 px-3 rounded-xl flex items-center space-x-1.5 transition-transform active:scale-98 cursor-pointer shadow-xs"
+              >
+                <Chrome className="h-3 w-3" />
+                <span>Googleアカウントと連携する</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Grid: Info Cards and Alerts */}

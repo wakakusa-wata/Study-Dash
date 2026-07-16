@@ -9,7 +9,7 @@ interface TeamSharingProps {
   users: UserProfile[];
   currentUserEmail: string | null;
   onAddTeam: (name: string, members: string[]) => Promise<void>;
-  onAddTaskToTeam: (title: string, priority: 'high' | 'medium' | 'low', deadline: string, teamId: string) => Promise<void>;
+  onAddTaskToTeam: (title: string, priority: 'high' | 'medium' | 'low', deadline: string, teamId: string, personalDeadline?: string) => Promise<void>;
   onUpdateTeamMembers: (teamId: string, members: string[]) => Promise<void>;
   onUpdateTaskProgress: (taskId: string, progress: number, status: 'todo' | 'doing' | 'done') => Promise<void>;
 }
@@ -34,6 +34,7 @@ export default function TeamSharing({
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'high' | 'medium' | 'low'>('medium');
   const [newTaskDeadline, setNewTaskDeadline] = useState('');
+  const [newTaskPersonalDeadline, setNewTaskPersonalDeadline] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
 
   // Member email listing
@@ -73,9 +74,10 @@ export default function TeamSharing({
 
     setIsAddingTask(true);
     try {
-      await onAddTaskToTeam(newTaskTitle, newTaskPriority, newTaskDeadline, activeTeam.id);
+      await onAddTaskToTeam(newTaskTitle, newTaskPriority, newTaskDeadline, activeTeam.id, newTaskPersonalDeadline);
       setNewTaskTitle('');
       setNewTaskDeadline('');
+      setNewTaskPersonalDeadline('');
     } catch (err: any) {
       console.error(err);
       const errMsg = err?.message || String(err);
@@ -228,8 +230,8 @@ export default function TeamSharing({
                 <h3 className="font-semibold text-base text-zinc-800 dark:text-zinc-100">「{activeTeam.name}」の共有課題を追加</h3>
               </div>
 
-              <form onSubmit={handleAddTaskToActiveTeam} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div className="md:col-span-2">
+              <form onSubmit={handleAddTaskToActiveTeam} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div className="md:col-span-4">
                   <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">課題のタイトル</label>
                   <input
                     type="text"
@@ -237,42 +239,53 @@ export default function TeamSharing({
                     placeholder="例: 数学レポートを月曜までに協力して完了させる"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden"
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden"
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">期限日</label>
                   <input
                     type="date"
                     required
                     value={newTaskDeadline}
                     onChange={(e) => setNewTaskDeadline(e.target.value)}
-                    className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2.5 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden block box-border"
+                    className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden block box-border"
                   />
                 </div>
 
-                <div className="flex justify-between items-center space-x-2">
-                  <div className="flex-1">
-                    <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">優先度</label>
-                    <select
-                      value={newTaskPriority}
-                      onChange={(e) => setNewTaskPriority(e.target.value as any)}
-                      className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2.5 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden"
-                    >
-                      <option value="high">高</option>
-                      <option value="medium">中</option>
-                      <option value="low">低</option>
-                    </select>
-                  </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">自己目標完了日（任意）</label>
+                  <input
+                    type="date"
+                    value={newTaskPersonalDeadline}
+                    onChange={(e) => setNewTaskPersonalDeadline(e.target.value)}
+                    className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden block box-border"
+                  />
+                </div>
 
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">優先度</label>
+                  <select
+                    value={newTaskPriority}
+                    onChange={(e) => setNewTaskPriority(e.target.value as any)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2 py-2 text-zinc-850 dark:text-zinc-100 text-xs focus:outline-hidden"
+                  >
+                    <option value="high">高</option>
+                    <option value="medium">中</option>
+                    <option value="low">低</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
                   <button
                     type="submit"
                     disabled={isAddingTask}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white p-2.5 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center mt-auto"
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2 px-3 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-1 font-semibold"
                     title="チーム課題を追加"
                   >
                     <Plus className="h-4 w-4" />
+                    <span>追加</span>
                   </button>
                 </div>
               </form>
@@ -299,9 +312,14 @@ export default function TeamSharing({
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <h4 className="font-semibold text-sm text-zinc-800 dark:text-zinc-200">{task.title}</h4>
-                            <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">
-                              期限: {task.deadline ? new Date(task.deadline).toLocaleDateString('ja-JP') : "未設定"}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-zinc-400 mt-1 font-mono">
+                              <span>期限: {task.deadline ? new Date(task.deadline).toLocaleDateString('ja-JP') : "未設定"}</span>
+                              {task.personalDeadline && (
+                                <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-sm font-semibold">
+                                  自己目標: {new Date(task.personalDeadline).toLocaleDateString('ja-JP')}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <span
                             className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${

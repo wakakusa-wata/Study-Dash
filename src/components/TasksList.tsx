@@ -6,7 +6,7 @@ import { motion } from 'motion/react';
 interface TasksListProps {
   tasks: Task[];
   accessToken: string | null;
-  onAddTask: (title: string, priority: TaskPriority, deadline: string, description: string) => Promise<void>;
+  onAddTask: (title: string, priority: TaskPriority, deadline: string, description: string, personalDeadline?: string) => Promise<void>;
   onUpdateTask: (taskId: string, fields: Partial<Task>) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onSyncTaskToGoogleCalendar: (task: Task) => Promise<void>;
@@ -31,6 +31,7 @@ export default function TasksList({
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [deadline, setDeadline] = useState('');
+  const [personalDeadline, setPersonalDeadline] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [syncingTaskId, setSyncingTaskId] = useState<string | null>(null);
@@ -56,10 +57,11 @@ export default function TasksList({
 
     setIsSubmitting(true);
     try {
-      await onAddTask(title, priority, deadline, description);
+      await onAddTask(title, priority, deadline, description, personalDeadline);
       setTitle('');
       setDescription('');
       setDeadline('');
+      setPersonalDeadline('');
     } catch (err: any) {
       console.error(err);
       const errMsg = err?.message || String(err);
@@ -143,6 +145,19 @@ export default function TasksList({
                 required
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
+                className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-zinc-850 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 block box-border"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>自分的な完了期限（任意）</span>
+                <span className="text-[10px] text-emerald-500 font-normal">いつまでに終わらせるか</span>
+              </label>
+              <input
+                type="date"
+                value={personalDeadline}
+                onChange={(e) => setPersonalDeadline(e.target.value)}
                 className="w-full max-w-full min-w-0 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-zinc-850 dark:text-zinc-100 text-sm focus:outline-hidden focus:border-emerald-500 block box-border"
               />
             </div>
@@ -250,17 +265,27 @@ export default function TasksList({
                             {task.description}
                           </p>
                         )}
-                        <div className="flex items-center space-x-2.5 mt-2 text-[10px] text-zinc-450 dark:text-zinc-400 font-mono">
-                          <span className="flex items-center">
-                            <Calendar className="h-3.5 w-3.5 mr-1" />
-                            締切: {task.deadline ? new Date(task.deadline).toLocaleDateString("ja-JP") : "未設定"}
-                          </span>
-                          {isOverdue && (
-                            <span className="flex items-center text-rose-500 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded-sm">
-                              <AlertCircle className="h-3 w-3 mr-0.5" />
-                              遅れ！提出期限超過
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                            <span className="flex items-center bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 rounded-md border border-zinc-150 dark:border-zinc-800">
+                              <Calendar className="h-3.5 w-3.5 mr-1 text-rose-400" />
+                              提出期限: <span className="font-semibold text-zinc-700 dark:text-zinc-300 ml-1">{task.deadline ? new Date(task.deadline).toLocaleDateString("ja-JP") : "未設定"}</span>
                             </span>
-                          )}
+
+                            {task.personalDeadline && (
+                              <span className="flex items-center bg-emerald-50/50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-md border border-emerald-105/50 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400">
+                                <CalendarCheck2 className="h-3.5 w-3.5 mr-1" />
+                                自己完了目標: <span className="font-semibold ml-1">{new Date(task.personalDeadline).toLocaleDateString("ja-JP")}</span>
+                              </span>
+                            )}
+
+                            {isOverdue && (
+                              <span className="flex items-center text-rose-500 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded-sm">
+                                <AlertCircle className="h-3 w-3 mr-0.5" />
+                                遅れ！提出期限超過
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

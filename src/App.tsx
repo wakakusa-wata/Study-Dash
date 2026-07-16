@@ -298,7 +298,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    if (window.confirm('サインアウトしますか？')) {
+    if (window.confirm('ログアウトしますか？ゲストモードで作成したデータは同じ端末・ブラウザからであれば自動的に再開されますが、シークレットモードやキャッシュ削除を行うと消える可能性があります。')) {
       await logout();
       setUser(null);
       setAccessToken(null);
@@ -306,10 +306,24 @@ export default function App() {
     };
   };
 
+  const handleUpdateProfile = async (newDisplayName: string) => {
+    if (!user) return;
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        displayName: newDisplayName,
+        updatedAt: new Date().toISOString()
+      });
+      setUserProfile(prev => prev ? { ...prev, displayName: newDisplayName } : null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
   /**
    * TASK OPERATIONS
    */
-  const handleAddTask = async (title: string, priority: 'high' | 'medium' | 'low', deadline: string, description: string) => {
+  const handleAddTask = async (title: string, priority: 'high' | 'medium' | 'low', deadline: string, description: string, personalDeadline?: string) => {
     if (!user) return;
     try {
       const newTask = {
@@ -324,11 +338,12 @@ export default function App() {
         ...(user.photoURL ? { userPhoto: user.photoURL } : {}),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        ...(personalDeadline ? { personalDeadline } : {}),
       };
       const docRef = await addDoc(collection(db, 'tasks'), newTask);
 
-      // Google Calendar auto-sync if OAuth accessToken is available
-      if (accessToken) {
+      // Google Calendar auto-sync if Google user
+      if (user && !user.isAnonymous) {
         try {
           const createdTask: Task = {
             id: docRef.id,
@@ -398,44 +413,130 @@ export default function App() {
   };
 
   const handleSyncTaskToGoogleCalendar = async (task: Task) => {
-    if (!accessToken) {
-      throw new Error('ゲストモード（またはGoogle連携未承認のログイン）では、Google Calendarとの同期機能はサポートされていません。この機能を利用するには、一度サインアウトし、Googleアカウントでログインしてください。');
+    let currentToken = accessToken;
+
+    // If the user is a logged-in Google user but we don't have a valid token (e.g., expired/cleared),
+    // attempt to prompt for a seamless Google Sign-In/re-authorization to retrieve a fresh token.
+    if (!currentToken && user && !user.isAnonymous) {
+      try {
+        console.log('Access token is missing or expired for Google user. Attempting to re-authorize...');
+        const result = await googleSignIn();
+        if (result) {
+          currentToken = result.accessToken;
+          setAccessToken(currentToken);
+        }
+      } catch (authErr: any) {
+        throw new Error('Googleカレンダーへのアクセス期限が切れています。カレンダー連携を継続するには、一度ダッシュボードから再度Googleアカウント連携（ログイン）を行ってください。');
+      }
     }
 
-    const event = {
-      summary: `【StudyDash 期限】${task.title}`,
-      description: task.description || 'StudyDashで管理されているあなたの勉強課題です。',
-      start: {
-        date: task.deadline, // All-day events
-      },
-      end: {
-        date: task.deadline,
+    if (!currentToken) {
+      throw new Error('ゲストモード（またはGoogle連携未承認のログイン）では、Google Calendarとの同期機能はサポートされていません。この機能を利用するには、Googleアカウントでログインするか、ダッシュボードから連携してください。');
+    }
+
+    const deadlineStr = task.deadline ? new Date(task.deadline).toLocaleDateString("ja-JP") : "未設定";
+    const personalDeadlineStr = task.personalDeadline ? new Date(task.personalDeadline).toLocaleDateString("ja-JP") : "未設定";
+
+    const customDescription = `【StudyDash 課題詳細】
+${task.description || '特になし'}
+
+---------------------------------
+📅 提出期限日: ${deadlineStr}
+🎯 自分的な完了期限: ${personalDeadlineStr}
+---------------------------------
+※この予定はStudyDashから自動同期されました。`;
+
+    // Helper to send individual event request
+    const createEventRequest = async (summary: string, dateStr: string) => {
+      const event = {
+        summary,
+        description: customDescription,
+        start: {
+          date: dateStr, // All-day event
+        },
+        end: {
+          date: dateStr,
+        }
+      };
+
+      let response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(event),
+      });
+
+      // If token expired, refresh and retry
+      if (response.status === 401 && user && !user.isAnonymous) {
+        console.log('Access token expired (401). Trying to refresh Google access token...');
+        try {
+          const result = await googleSignIn();
+          if (result) {
+            currentToken = result.accessToken;
+            setAccessToken(currentToken);
+
+            // Retry the exact fetch call
+            response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(event),
+            });
+          }
+        } catch (authErr) {
+          console.error('Failed to re-authorize after 401:', authErr);
+        }
       }
+
+      if (!response.ok) {
+        const errTxt = await response.text();
+        throw new Error(errTxt);
+      }
+
+      const resData = await response.json();
+      return resData.id as string;
     };
 
-    const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(event),
-    });
+    let deadlineEventId: string | undefined;
+    let personalEventId: string | undefined;
 
-    if (!response.ok) {
-      const errTxt = await response.text();
-      throw new Error(errTxt);
+    // Create deadline event if exists
+    if (task.deadline) {
+      try {
+        deadlineEventId = await createEventRequest(`【提出期限】${task.title}`, task.deadline);
+      } catch (err) {
+        console.error('Failed to sync deadline event:', err);
+        throw err;
+      }
     }
 
-    const resData = await response.json();
-    const eventId = resData.id;
+    // Create personal goal event if exists
+    if (task.personalDeadline) {
+      try {
+        personalEventId = await createEventRequest(`【自分目標期限】${task.title}`, task.personalDeadline);
+      } catch (err) {
+        console.error('Failed to sync personal deadline event:', err);
+        throw err;
+      }
+    }
 
-    // Save Calendar event reference back into Firestore
-    const taskRef = doc(db, 'tasks', task.id);
-    await updateDoc(taskRef, {
-      googleCalendarEventId: eventId,
+    // Update Firestore task doc
+    const updateFields: any = {
       updatedAt: new Date().toISOString()
-    });
+    };
+    if (deadlineEventId) {
+      updateFields.googleCalendarEventId = deadlineEventId;
+    }
+    if (personalEventId) {
+      updateFields.googleCalendarPersonalEventId = personalEventId;
+    }
+
+    const taskRef = doc(db, 'tasks', task.id);
+    await updateDoc(taskRef, updateFields);
   };
 
   /**
@@ -586,7 +687,7 @@ export default function App() {
     }
   };
 
-  const handleAddTaskToTeam = async (title: string, priority: 'high' | 'medium' | 'low', deadline: string, teamId: string) => {
+  const handleAddTaskToTeam = async (title: string, priority: 'high' | 'medium' | 'low', deadline: string, teamId: string, personalDeadline?: string) => {
     if (!user) return;
     try {
       const newTeamTask = {
@@ -600,7 +701,8 @@ export default function App() {
         ...(user.photoURL ? { userPhoto: user.photoURL } : {}),
         teamId,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        ...(personalDeadline ? { personalDeadline } : {}),
       };
       const docRef = await addDoc(collection(db, 'tasks'), newTeamTask);
 
@@ -924,9 +1026,11 @@ export default function App() {
                   journals={journals}
                   userProfile={userProfile}
                   accessToken={accessToken}
+                  isGuest={user?.isAnonymous || false}
                   onUpdateTask={handleUpdateTask}
                   onTriggerGoogleLogin={handleLogin}
                   onLinkGoogleCalendar={() => setCurrentTab('tasks')}
+                  onUpdateProfile={handleUpdateProfile}
                 />
               )}
 

@@ -24,6 +24,7 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "deadline": { "type": "string", "format": "date-time" },
+        "personalDeadline": { "type": "string", "format": "date-time" },
         "priority": { "type": "string" },
         "status": { "type": "string" },
         "progress": { "type": "number" },

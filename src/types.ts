@@ -22,7 +22,9 @@ export interface Task {
   userName: string;
   userPhoto?: string;
   teamId?: string; // Empty if individual
+  personalDeadline?: string; // ISO date string (Self completion target)
   googleCalendarEventId?: string;
+  googleCalendarPersonalEventId?: string;
   overdueReminded?: boolean;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
