@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 interface TasksListProps {
   tasks: Task[];
   accessToken: string | null;
+  isGuest?: boolean;
   onAddTask: (title: string, priority: TaskPriority, deadline: string, description: string, personalDeadline?: string) => Promise<void>;
   onUpdateTask: (taskId: string, fields: Partial<Task>) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
@@ -23,6 +24,7 @@ const priorityWeights: Record<TaskPriority, number> = {
 export default function TasksList({
   tasks,
   accessToken,
+  isGuest = false,
   onAddTask,
   onUpdateTask,
   onDeleteTask,
@@ -117,8 +119,8 @@ export default function TasksList({
   };
 
   const handleSyncToCalendar = async (task: Task) => {
-    if (!accessToken) {
-      alert('Googleカレンダーに同期するには、Googleでのログインが必要です。お手数ですが、ダッシュボードまたは右上でGoogleアカウントと連携を行ってください。');
+    if (isGuest) {
+      alert('ゲストモード（匿名ログイン）では、Googleカレンダーとの同期機能はサポートされていません。この機能を利用するには、画面右上メニューから一度ログアウトし、Googleアカウントでログインし直してください。');
       return;
     }
 
@@ -283,7 +285,7 @@ export default function TasksList({
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                       <div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                           <h4
                             className={`font-semibold text-sm ${
                               task.status === 'done'
@@ -304,6 +306,15 @@ export default function TasksList({
                           >
                             {task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低'}
                           </span>
+                          {(task.googleCalendarEventId || task.googleCalendarPersonalEventId) && (
+                            <span 
+                              className="inline-flex items-center space-x-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-50/80 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/30"
+                              title="Googleカレンダー同期済み"
+                            >
+                              <Calendar className="h-3 w-3 text-blue-500" />
+                              <span>カレンダー同期済</span>
+                            </span>
+                          )}
                         </div>
                         {task.description && (
                           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 l-relaxed leading-relaxed">
@@ -312,15 +323,27 @@ export default function TasksList({
                         )}
                         <div className="flex flex-col gap-1.5 mt-2">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
-                            <span className="flex items-center bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 rounded-md border border-zinc-150 dark:border-zinc-800">
-                              <Calendar className="h-3.5 w-3.5 mr-1 text-rose-400" />
+                            <span className={`flex items-center bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 rounded-md border ${task.googleCalendarEventId ? 'border-blue-200 dark:border-blue-900/30 bg-blue-50/10' : 'border-zinc-150 dark:border-zinc-800'}`}>
+                              <Calendar className={`h-3.5 w-3.5 mr-1 ${task.googleCalendarEventId ? 'text-blue-500' : 'text-rose-400'}`} />
                               提出期限: <span className="font-semibold text-zinc-700 dark:text-zinc-300 ml-1">{task.deadline ? new Date(task.deadline).toLocaleDateString("ja-JP") : "未設定"}</span>
+                              {task.googleCalendarEventId && (
+                                <span className="ml-1 px-1 bg-blue-100 dark:bg-blue-900/50 text-[8px] text-blue-700 dark:text-blue-300 rounded font-sans font-bold flex items-center gap-0.5" title="提出期限カレンダー同期完了">
+                                  <Check className="h-2.5 w-2.5 stroke-[3]" />
+                                  <span>同期</span>
+                                </span>
+                              )}
                             </span>
 
                             {task.personalDeadline && (
-                              <span className="flex items-center bg-emerald-50/50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-md border border-emerald-105/50 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400">
-                                <CalendarCheck2 className="h-3.5 w-3.5 mr-1" />
+                              <span className={`flex items-center px-2 py-0.5 rounded-md border ${task.googleCalendarPersonalEventId ? 'bg-blue-50/10 border-blue-200 dark:border-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-105/50 dark:border-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
+                                <CalendarCheck2 className={`h-3.5 w-3.5 mr-1 ${task.googleCalendarPersonalEventId ? 'text-blue-500' : ''}`} />
                                 自己完了目標: <span className="font-semibold ml-1">{new Date(task.personalDeadline).toLocaleDateString("ja-JP")}</span>
+                                {task.googleCalendarPersonalEventId && (
+                                  <span className="ml-1 px-1 bg-blue-100 dark:bg-blue-900/50 text-[8px] text-blue-700 dark:text-blue-300 rounded font-sans font-bold flex items-center gap-0.5" title="自己完了目標カレンダー同期完了">
+                                    <Check className="h-2.5 w-2.5 stroke-[3]" />
+                                    <span>同期</span>
+                                  </span>
+                                )}
                               </span>
                             )}
 
@@ -336,20 +359,31 @@ export default function TasksList({
 
                       {/* Google Calendar sync state or trigers */}
                       <div className="flex items-center space-x-2">
-                        {task.googleCalendarEventId ? (
-                          <div className="flex items-center space-x-1 text-[10px] bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 py-1 py-1.5 px-2.5 rounded-lg border border-emerald-100 dark:border-emerald-900/40">
-                            <CalendarCheck2 className="h-3.5 w-3.5" />
-                            <span className="font-semibold">カレンダー提中</span>
+                        {(task.googleCalendarEventId || task.googleCalendarPersonalEventId) ? (
+                          <div className="flex items-center space-x-1.5">
+                            <div className="flex items-center space-x-1 text-[10px] bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 py-1.5 px-2 rounded-lg border border-blue-100/30 dark:border-blue-900/40">
+                              <CalendarCheck2 className="h-3.5 w-3.5 text-blue-500" />
+                              <span className="font-semibold">同期済</span>
+                            </div>
+                            <button
+                              onClick={() => handleSyncToCalendar(task)}
+                              disabled={syncingTaskId !== null}
+                              className="flex items-center space-x-1 text-[10px] bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 py-1.5 px-2 rounded-lg border border-zinc-200 dark:border-zinc-805 transition-colors cursor-pointer font-medium"
+                              title="Googleカレンダーの同期内容を更新（再同期）"
+                            >
+                              <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                              <span>{syncingTaskId === task.id ? '同期中...' : '再同期'}</span>
+                            </button>
                           </div>
                         ) : (
                           <button
                             onClick={() => handleSyncToCalendar(task)}
                             disabled={syncingTaskId !== null}
-                            className="flex items-center space-x-1 text-[10px] bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-405 py-1.5 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 transition-colors cursor-pointer"
+                            className="flex items-center space-x-1 text-[10px] bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-405 py-1.5 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-805 transition-colors cursor-pointer font-medium"
                             title="Googleカレンダーに同期"
                           >
                             <Calendar className="h-3.5 w-3.5" />
-                            <span>{syncingTaskId === task.id ? '同期中...' : 'Google同期'}</span>
+                            <span>{syncingTaskId === task.id ? '同期中...' : 'カレンダー同期'}</span>
                           </button>
                         )}
 

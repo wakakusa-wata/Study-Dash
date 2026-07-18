@@ -576,6 +576,9 @@ ${task.description || '特になし'}
           return syncEvent(undefined, summary, dateStr);
         }
         const errTxt = await response.text();
+        if (response.status === 403 || errTxt.includes('Insufficient Permission') || errTxt.includes('PERMISSION_DENIED') || errTxt.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT')) {
+          throw new Error('Googleカレンダーへの書き込み権限がありません。ログインの際、Googleの承認画面で「カレンダーイベントの編集」にチェックが入っていることを確認してください。解決するには、画面右上メニューから一度ログアウトし、再ログイン時に必ず権限にチェックを入れて連携し直してください。');
+        }
         throw new Error(errTxt);
       }
 
@@ -1114,10 +1117,11 @@ ${task.description || '特になし'}
                 />
               )}
 
-              {currentTab === 'tasks' && (
+               {currentTab === 'tasks' && (
                 <TasksList
                   tasks={tasks}
                   accessToken={accessToken}
+                  isGuest={user?.isAnonymous || false}
                   onAddTask={handleAddTask}
                   onUpdateTask={handleUpdateTask}
                   onDeleteTask={handleDeleteTask}

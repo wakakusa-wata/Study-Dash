@@ -20,17 +20,21 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isNumeric(val) {
+      return val is int || val is float;
+    }
+
     // Users profiles
     match /users/{userId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isOwner(userId)
         && request.resource.data.keys().hasAll(['uid', 'displayName', 'email', 'xp', 'weeklyGoalMinutes', 'createdAt'])
-        && request.resource.data.xp is number
-        && request.resource.data.weeklyGoalMinutes is number;
+        && isNumeric(request.resource.data.xp)
+        && isNumeric(request.resource.data.weeklyGoalMinutes);
       allow update: if isOwner(userId)
-        && request.resource.data.xp is number
-        && request.resource.data.weeklyGoalMinutes is number;
+        && isNumeric(request.resource.data.xp)
+        && isNumeric(request.resource.data.weeklyGoalMinutes);
       allow delete: if false; // Users shouldn't delete profile from client
     }
 
@@ -46,7 +50,7 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.keys().hasAll(['title', 'userId', 'userName', 'status', 'progress', 'priority', 'createdAt', 'updatedAt'])
-        && request.resource.data.progress is number
+        && isNumeric(request.resource.data.progress)
         && request.resource.data.progress >= 0
         && request.resource.data.progress <= 100;
 
@@ -55,7 +59,7 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid ||
         // Other users if the task is a team shared task, but they can only update status and progress
         (resource.data.teamId != "" && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'progress', 'updatedAt']))
-      ) && request.resource.data.progress is number
+      ) && isNumeric(request.resource.data.progress)
         && request.resource.data.progress >= 0
         && request.resource.data.progress <= 100;
 
@@ -88,11 +92,11 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.keys().hasAll(['userId', 'userName', 'content', 'studyMinutes', 'createdAt'])
-        && request.resource.data.studyMinutes is number;
+        && isNumeric(request.resource.data.studyMinutes);
 
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid
-        && request.resource.data.studyMinutes is number;
+        && isNumeric(request.resource.data.studyMinutes);
 
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }

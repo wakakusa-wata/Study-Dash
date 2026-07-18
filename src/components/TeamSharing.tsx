@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Team, Task, UserProfile } from '../types';
-import { Users, Plus, Check, UserPlus, FileText, LayoutList, Share2 } from 'lucide-react';
+import { Users, Plus, Check, UserPlus, FileText, LayoutList, Share2, Calendar, CalendarCheck2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface TeamSharingProps {
@@ -311,11 +311,26 @@ export default function TeamSharing({
                       <div key={task.id} className="p-4 bg-zinc-50/75 dark:bg-zinc-950/40 border border-zinc-100 dark:border-zinc-850/60 rounded-xl">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h4 className="font-semibold text-sm text-zinc-800 dark:text-zinc-200">{task.title}</h4>
+                            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                              <h4 className="font-semibold text-sm text-zinc-800 dark:text-zinc-200">{task.title}</h4>
+                              {(task.googleCalendarEventId || task.googleCalendarPersonalEventId) && (
+                                <span 
+                                  className="inline-flex items-center space-x-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-50/80 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/30"
+                                  title="Googleカレンダー同期済み"
+                                >
+                                  <Calendar className="h-2.5 w-2.5 text-blue-500" />
+                                  <span>同期済</span>
+                                </span>
+                              )}
+                            </div>
                             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-zinc-400 mt-1 font-mono">
-                              <span>期限: {task.deadline ? new Date(task.deadline).toLocaleDateString('ja-JP') : "未設定"}</span>
+                              <span className="flex items-center">
+                                <Calendar className="h-3.5 w-3.5 mr-1 text-rose-400" />
+                                期限: {task.deadline ? new Date(task.deadline).toLocaleDateString('ja-JP') : "未設定"}
+                              </span>
                               {task.personalDeadline && (
-                                <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-sm font-semibold">
+                                <span className="flex items-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-sm font-semibold">
+                                  <CalendarCheck2 className="h-3.5 w-3.5 mr-1" />
                                   自己目標: {new Date(task.personalDeadline).toLocaleDateString('ja-JP')}
                                 </span>
                               )}
